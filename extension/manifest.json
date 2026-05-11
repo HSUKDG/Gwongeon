@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "한성대 학사 비서 (프로토타입)",
+  "version": "0.1.0",
+  "description": "학칙·공지·FAQ를 바탕으로 자연어 질의에 답하는 챗봇 패널 (백엔드 연동 전 모의 응답 포함)",
+  "permissions": ["sidePanel", "storage"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "학사 비서 열기"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

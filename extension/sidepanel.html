@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>한성대 학사 비서</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-title">학사 비서</span>
+        <span class="brand-badge">프로토타입</span>
+      </div>
+      <button type="button" class="icon-btn" id="btn-settings" title="API 설정">⚙</button>
+    </header>
+
+    <section class="settings-panel hidden" id="settings-panel" aria-label="API 설정">
+      <label class="field">
+        <span>백엔드 URL (비우면 모의 응답)</span>
+        <input
+          type="url"
+          id="api-base"
+          placeholder="http://127.0.0.1:8000"
+          autocomplete="off"
+        />
+      </label>
+      <p class="hint">
+        FastAPI 등에서 <code>POST /chat</code> 로 <code>{"message":"..."}</code> 를 받으면 연동됩니다.
+      </p>
+      <button type="button" class="primary" id="btn-save-settings">저장</button>
+    </section>
+
+    <main class="chat" id="chat" aria-live="polite"></main>
+
+    <footer class="composer">
+      <textarea
+        id="input"
+        rows="2"
+        maxlength="2000"
+        placeholder="예: 2024년 입학생 기준 컴퓨터공학 졸업요건 정리해줘"
+      ></textarea>
+      <button type="button" class="primary" id="btn-send">보내기</button>
+    </footer>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
