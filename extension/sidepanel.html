@@ -17,7 +17,14 @@
 
     <section class="settings-panel hidden" id="settings-panel" aria-label="API 설정">
       <label class="field">
-        <span>백엔드 URL (비우면 모의 응답)</span>
+        <span>백엔드 종류</span>
+        <select id="backend-type" aria-label="백엔드 종류">
+          <option value="custom">커스텀 API (POST …/chat)</option>
+          <option value="ollama">Ollama (POST …/api/chat)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>베이스 URL (비우면 모의 응답)</span>
         <input
           type="url"
           id="api-base"
@@ -25,8 +32,15 @@
           autocomplete="off"
         />
       </label>
-      <p class="hint">
-        FastAPI 등에서 <code>POST /chat</code> 로 <code>{"message":"..."}</code> 를 받으면 연동됩니다.
+      <label class="field hidden" id="ollama-model-wrap">
+        <span>Ollama 모델 이름</span>
+        <input type="text" id="ollama-model" placeholder="llama3.2" spellcheck="false" autocomplete="off" />
+      </label>
+      <p class="hint" id="hint-custom">
+        커스텀: <code>POST {URL}/chat</code> · 본문 <code>{"message":"..."}</code>
+      </p>
+      <p class="hint hidden" id="hint-ollama">
+        Ollama 기본 주소는 <code>http://127.0.0.1:11434</code> 입니다. 터미널에서 <code>ollama serve</code> 가 떠 있어야 하며, 모델은 <code>ollama pull 모델이름</code> 으로 받아 두세요.
       </p>
       <button type="button" class="primary" id="btn-save-settings">저장</button>
     </section>

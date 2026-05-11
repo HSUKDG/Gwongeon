@@ -93,11 +93,15 @@ body {
   color: var(--muted);
 }
 
-.field input {
+.field input,
+.field select {
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .hint {

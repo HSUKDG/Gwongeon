@@ -30,6 +30,14 @@
 
 **CORS:** 로컬 FastAPI에서 허용하려면 예를 들어 `CORSMiddleware` 로 확장의 origin 또는 `chrome-extension://...` 을 허용해야 할 수 있습니다.
 
+### Ollama (로컬 LLM)
+
+1. [Ollama](https://ollama.com/)를 설치한 뒤 터미널에서 `ollama serve` 가 동작하는지 확인합니다. (기본 주소: `http://127.0.0.1:11434`)
+2. 사용할 모델을 받습니다. 예: `ollama pull llama3.2`
+3. 확장 ⚙에서 **백엔드 종류**를 **Ollama**로 바꾸고, **베이스 URL**에 `http://127.0.0.1:11434` 를 입력합니다.
+4. **Ollama 모델 이름**에 `ollama list` 에 나오는 이름(예: `llama3.2`)을 넣고 저장합니다.
+5. 확장은 `POST http://127.0.0.1:11434/api/chat` 로 `stream: false` 인 채팅 요청을 보냅니다. Ollama는 같은 머신에서 동작하므로 보통 CORS 설정이 필요 없습니다.
+
 ## 폴더 구조
 
 - `extension/manifest.json` — MV3, 사이드 패널, `localhost` 호출 권한

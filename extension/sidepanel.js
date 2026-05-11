@@ -1,4 +1,8 @@
 const STORAGE_KEY = "apiBaseUrl";
+const STORAGE_BACKEND = "backendType";
+const STORAGE_OLLAMA_MODEL = "ollamaModel";
+
+const DEFAULT_OLLAMA_MODEL = "llama3.2";
 
 const chatEl = document.getElementById("chat");
 const inputEl = document.getElementById("input");
@@ -6,6 +10,11 @@ const sendBtn = document.getElementById("btn-send");
 const settingsBtn = document.getElementById("btn-settings");
 const settingsPanel = document.getElementById("settings-panel");
 const apiBaseEl = document.getElementById("api-base");
+const backendTypeEl = document.getElementById("backend-type");
+const ollamaModelWrap = document.getElementById("ollama-model-wrap");
+const ollamaModelEl = document.getElementById("ollama-model");
+const hintCustom = document.getElementById("hint-custom");
+const hintOllama = document.getElementById("hint-ollama");
 const saveSettingsBtn = document.getElementById("btn-save-settings");
 
 function escapeHtml(s) {
@@ -104,9 +113,25 @@ function mockReply(userText) {
   };
 }
 
-async function getStoredApiBase() {
-  const data = await chrome.storage.sync.get(STORAGE_KEY);
-  return (data[STORAGE_KEY] || "").trim().replace(/\/$/, "");
+async function getStoredSettings() {
+  const data = await chrome.storage.sync.get([
+    STORAGE_KEY,
+    STORAGE_BACKEND,
+    STORAGE_OLLAMA_MODEL,
+  ]);
+  const apiBase = (data[STORAGE_KEY] || "").trim().replace(/\/$/, "");
+  const backendType = data[STORAGE_BACKEND] === "ollama" ? "ollama" : "custom";
+  let ollamaModel = (data[STORAGE_OLLAMA_MODEL] || "").trim();
+  if (!ollamaModel) ollamaModel = DEFAULT_OLLAMA_MODEL;
+  return { apiBase, backendType, ollamaModel };
+}
+
+function syncBackendTypeUI() {
+  const isOllama = backendTypeEl.value === "ollama";
+  ollamaModelWrap.classList.toggle("hidden", !isOllama);
+  hintCustom.classList.toggle("hidden", isOllama);
+  hintOllama.classList.toggle("hidden", !isOllama);
+  apiBaseEl.placeholder = isOllama ? "http://127.0.0.1:11434" : "http://127.0.0.1:8000";
 }
 
 async function sendToBackend(apiBase, message) {
@@ -123,12 +148,57 @@ async function sendToBackend(apiBase, message) {
   return res.json();
 }
 
+async function sendToOllama(apiBase, model, message) {
+  const url = `${apiBase}/api/chat`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: message }],
+      stream: false,
+    }),
+  });
+  const raw = await res.text().catch(() => "");
+  let json;
+  try {
+    json = raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new Error(raw || `HTTP ${res.status}`);
+  }
+  if (!res.ok) {
+    throw new Error(json.error || raw || `HTTP ${res.status}`);
+  }
+  if (json.error) {
+    throw new Error(typeof json.error === "string" ? json.error : JSON.stringify(json.error));
+  }
+  const content =
+    json.message && typeof json.message.content === "string" ? json.message.content : "";
+  const metaModel = json.model || model;
+  return {
+    text: content,
+    citations: [],
+    meta: `Ollama · ${metaModel}`,
+  };
+}
+
 function normalizeBackendPayload(json, rawText) {
   if (typeof json === "string") {
     return { text: json, citations: [], meta: "백엔드 응답" };
   }
+  const nested =
+    json.message && typeof json.message === "object" && typeof json.message.content === "string"
+      ? json.message.content
+      : "";
+  const stringMessage = typeof json.message === "string" ? json.message : "";
   const text =
-    json.answer ?? json.reply ?? json.message ?? json.text ?? rawText ?? "";
+    json.answer ??
+    json.reply ??
+    json.text ??
+    (stringMessage || null) ??
+    (nested || null) ??
+    rawText ??
+    "";
   const citations = Array.isArray(json.citations)
     ? json.citations
     : Array.isArray(json.sources)
@@ -136,6 +206,19 @@ function normalizeBackendPayload(json, rawText) {
       : [];
   const meta = json.meta ?? json.mode ?? "";
   return { text, citations, meta: meta || "백엔드 응답" };
+}
+
+function errorCitations(apiBase, backendType) {
+  if (!apiBase) {
+    return [{ label: "⚙에서 백엔드 URL 저장" }];
+  }
+  if (backendType === "ollama") {
+    return [
+      { label: "Ollama 로컬 API", url: `${apiBase}/api/tags` },
+      { label: "모델 목록 확인", url: "https://github.com/ollama/ollama/blob/main/docs/api.md" },
+    ];
+  }
+  return [{ label: "OpenAPI 문서(있다면)", url: `${apiBase}/docs` }];
 }
 
 async function handleSend() {
@@ -146,13 +229,18 @@ async function handleSend() {
   sendBtn.disabled = true;
   appendMessage("user", message);
 
-  const apiBase = await getStoredApiBase();
+  const { apiBase, backendType, ollamaModel } = await getStoredSettings();
 
   try {
     if (apiBase) {
-      const json = await sendToBackend(apiBase, message);
-      const { text, citations, meta } = normalizeBackendPayload(json);
-      appendMessage("assistant", text || "(빈 응답)", citations, meta);
+      if (backendType === "ollama") {
+        const { text, citations, meta } = await sendToOllama(apiBase, ollamaModel, message);
+        appendMessage("assistant", text || "(빈 응답)", citations, meta);
+      } else {
+        const json = await sendToBackend(apiBase, message);
+        const { text, citations, meta } = normalizeBackendPayload(json);
+        appendMessage("assistant", text || "(빈 응답)", citations, meta);
+      }
     } else {
       const { text, citations, meta } = mockReply(message);
       appendMessage("assistant", text, citations, meta);
@@ -161,16 +249,7 @@ async function handleSend() {
     appendMessage(
       "assistant",
       "백엔드 요청에 실패했습니다.\n\n" + (e && e.message ? e.message : String(e)),
-      [
-        apiBase
-          ? {
-              label: "OpenAPI 문서(있다면)",
-              url: `${apiBase}/docs`,
-            }
-          : {
-              label: "⚙에서 백엔드 URL 저장",
-            },
-      ],
+      errorCitations(apiBase, backendType),
       "오류 · URL·CORS·서버 기동 여부를 확인하세요",
     );
   } finally {
@@ -182,7 +261,7 @@ async function handleSend() {
 function initWelcome() {
   appendMessage(
     "assistant",
-    "한성대 학사 비서 프로토타입입니다.\n\n학칙·장학·졸업요건처럼 물어보시면 모의 응답과 예시 근거 링크를 보여 드립니다. 상단 ⚙에서 백엔드 URL을 넣으면 POST /chat 으로 연동합니다.",
+    "한성대 학사 비서 프로토타입입니다.\n\n학칙·장학·졸업요건처럼 물어보시면 모의 응답과 예시 근거 링크를 보여 드립니다. 상단 ⚙에서 백엔드 종류·URL을 설정하세요. Ollama는 주소 http://127.0.0.1:11434 과 모델 이름을 넣으면 POST /api/chat 으로 연결됩니다.",
     [
       {
         label: "한성대 메인",
@@ -201,11 +280,31 @@ settingsBtn.addEventListener("click", () => {
   settingsPanel.classList.toggle("hidden");
 });
 
+backendTypeEl.addEventListener("change", syncBackendTypeUI);
+
 saveSettingsBtn.addEventListener("click", async () => {
   const v = apiBaseEl.value.trim().replace(/\/$/, "");
-  await chrome.storage.sync.set({ [STORAGE_KEY]: v });
+  const backendType = backendTypeEl.value === "ollama" ? "ollama" : "custom";
+  let model = ollamaModelEl.value.trim();
+  if (backendType === "ollama" && !model) model = DEFAULT_OLLAMA_MODEL;
+  const toSave = {
+    [STORAGE_KEY]: v,
+    [STORAGE_BACKEND]: backendType,
+  };
+  if (backendType === "ollama") {
+    toSave[STORAGE_OLLAMA_MODEL] = model;
+  }
+  await chrome.storage.sync.set(toSave);
   settingsPanel.classList.add("hidden");
-  appendMessage("assistant", v ? `백엔드 URL을 저장했습니다: ${v}` : "백엔드를 비웠습니다. 모의 응답 모드입니다.", [], "설정");
+  if (!v) {
+    appendMessage("assistant", "백엔드를 비웠습니다. 모의 응답 모드입니다.", [], "설정");
+    return;
+  }
+  const detail =
+    backendType === "ollama"
+      ? `Ollama · ${v} · 모델 ${model || DEFAULT_OLLAMA_MODEL}`
+      : `커스텀 API · ${v} · POST /chat`;
+  appendMessage("assistant", `설정을 저장했습니다.\n\n${detail}`, [], "설정");
 });
 
 sendBtn.addEventListener("click", handleSend);
@@ -218,7 +317,10 @@ inputEl.addEventListener("keydown", (e) => {
 });
 
 (async () => {
-  const base = await getStoredApiBase();
-  apiBaseEl.value = base;
+  const s = await getStoredSettings();
+  apiBaseEl.value = s.apiBase;
+  backendTypeEl.value = s.backendType;
+  ollamaModelEl.value = s.ollamaModel;
+  syncBackendTypeUI();
   initWelcome();
 })();
