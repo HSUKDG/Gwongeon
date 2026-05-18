@@ -1,0 +1,27 @@
+{
+  "name": "hansung-link-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hansung-Link Chrome Extension frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "latest",
+    "@vitejs/plugin-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/chrome": "latest",
+    "@types/node": "^25.8.0",
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
+  }
+}
